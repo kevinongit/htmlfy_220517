@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<!-- kevin -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      .is-hidden {
+        display: none !important;
+      }
+      .top-container {
+        display: block;
+      }
+      .search {
+        padding: 10px 26px;
+        position: absolute;
+        color: #f1f1f1;
+        background: black;
+        z-index: 100;
+      }
+      .search input {
+        padding: 8px;
+        transition: width 0.2s;
+        -webkit-appearance: none;
+      }
+      .content {
+        padding: 16px;
+      }
+      .sticky {
+        position: fixed;
+        top: 0;
+        width: 100%;
+      }
+      .sticky + .content {
+        padding-top: 102px;
+      }
+      .row {
+        margin: 0 -5px;
+      }
+      .row:after {
+        content: '';
+        display: table;
+        clear: both;
+      }
+      .column {
+        float: left;
+        width: 45%;
+        margin-bottom: 10px;
+        padding: 0 10px;
+      }
+      .onepiece {
+        min-width: none;
+      }
+      .cards {
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        transition: 0.3s;
+        height: 80px;
+        padding: 12px 26px;
+        opacity: 0.8;
+        transition: 0.3s;
+      }
+      .cards:hover {
+        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+        opacity: 1.4;
+      }
+      .grow-shadow {
+        display: inline-block;
+        vertical-align: middle;
+        -webkit-transform: perspective(1px) translateZ(0);
+        transform: perspective(1px) translateZ(0);
+        -webkit-transition-duration: 0.3s;
+        transition-duration: 0.3s;
+        -webkit-transition-property: box-shadow, transform;
+        transition-property: box-shadow, transform;
+      }
+      .grow-shadow:hover,
+      .grow-shadow:focus,
+      .grow-shadow:active {
+        -webkit-transform: scale(1.1);
+        transform: scale(1.1);
+        background-color: whitesmoke;
+      }
+      .container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .r1 {
+        display: flex;
+        align-items: center;
+      }
+      .col1 {
+        width: 85%;
+      }
+      .col2 {
+        width: 15%;
+      }
+      .icons {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+      }
+      .guide-table {
+        border: 0.5px solid gray;
+        border-collapse: collapse;
+        width: 100%;
+        border-spacing: 0px;
+        table-layout: fixed;
+      }
+      .guide-table th {
+        background: #35332c;
+        color: whitesmoke;
+        border-bottom: 0 none;
+      }
+      .guide-table td {
+        padding: 5px;
+        border: 1px solid #bfbfbf;
+      }
+
+      th,
+      td {
+        padding: 8px;
+        word-wrap: break-word;
+        border-bottom: 1px solid #ddd;
+      }
+      .td-block-multi {
+        display: flex;
+        justify-content: space-around;
+      }
+      .td-edit {
+        align-self: center;
+      }
+      .td-button {
+        border: 0;
+        opacity: 0;
+      }
+      .td-block-multi:hover .td-button {
+        opacity: 1;
+        background-color: #ffaa40;
+      }
+      .trow {
+        margin-bottom: 10px;
+        padding: 0 10px;
+      }
+      .tcards {
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        transition: 0.3s;
+        width: 89%;
+        padding: 12px 26px;
+      }
+      .tcards:hover {
+        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+      }
+      pre {
+        white-space: pre-wrap;
+        float: left;
+      }
+      .status {
+        height: 25px;
+        width: 25px;
+        border-radius: 50%;
+        background-color: #bbb;
+        display: inline-block;
+      }
+      .issue1-button {
+        background-color: #04aa04;
+        border: none;
+        border-radius: 10%;
+        color: white;
+        padding: 10px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+      }
+      .issue2-button {
+        background-color: #2fcfe4;
+        border: none;
+        border-radius: 50%;
+        color: white;
+        width: 32px;
+        height: 32px;
+        padding: 5px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+      }
+      .issue-clear {
+        font-size: 24px;
+      }
+      @media screen and (max-width: 600px) {
+        .column {
+          width: 95%;
+          display: block;
+          margin-bottom: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="top-container">
+        <h2>내게맞는대출찾기 통합테스트</h2>
+      </div>
+      <div class="content">
+        <div id="root">Loading...</div>
+      </div>
+    </div>
+  </body>
+  <script>
+    const selectRecords = prefix => (prefix === 'small' ? smallRecords : bigRecords)
+
+    function getCurrentBrowser(ua) {
+      return ua.indexOf('rv') > -1 || ua.indexOf('MSIE') > -1 ? 'ie' : ua.indexOf('Edg') > -1 ? 'edge' : 'chrome'
+    }
+    function showIssue(prefix, id, idx, key) {
+      const target = document.getElementById(id)
+      if (!key || !key.length) {
+        target.innerHTML = `<span class="issue-clear">&#128584;</span>`
+        return
+      }
+      const records = selectRecords(prefix)
+      const list = Array.isArray(key) ? key.flatMap(k => records[idx][k]) : records[idx][key]
+
+      target.innerHTML = list.length
+        ? list.flatMap(({num, title}) => `<a title='${title}' href="http://10.2.55.67/redmine/issues/${num}" target="_blank">#${num}&nbsp;</a>`)
+        : `<span class="issue-clear">&#127881;</span>`
+    }
+    function showAllIssue(prefix, keys) {
+      const records = selectRecords(prefix)
+      console.log(`records.length=${records.length}`)
+      records.map((record, idx) => {
+        const id = `${prefix}_${idx}_issues`
+        showIssue(prefix, id, idx, keys)
+      })
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (getCurrentBrowser(window.navigator.userAgent) === 'ie') {
+        alert('Chrome or Edge, please...')
+        window.close()
+      }
+
+      const root = document.getElementById('rooot')
+      let bigRecords = 'BIG_RECORDS'
+      let smallRecords = 'SMALL_RECORDS'
+      let content = `CONTENT_HERE`
+
+      root.innerHTML = contents
+
+      showAllIssue('big', ['open', 'inProgress', 'reopen'])
+      showAllIssue('small', ['open', 'inProgress', 'reopen'])
+    })
+  </script>
+</html>
