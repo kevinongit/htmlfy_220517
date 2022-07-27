@@ -213,6 +213,8 @@
     </div>
   </body>
   <script>
+    let bigRecords = 'BIG_RECORDS'
+    let smallRecords = 'SMALL_RECORDS'
     const selectRecords = prefix => (prefix === 'small' ? smallRecords : bigRecords)
 
     function getCurrentBrowser(ua) {
@@ -246,15 +248,13 @@
         window.close()
       }
 
-      const root = document.getElementById('rooot')
-      let bigRecords = 'BIG_RECORDS'
-      let smallRecords = 'SMALL_RECORDS'
-      let content = `CONTENT_HERE`
-
-      root.innerHTML = contents
-
       showAllIssue('big', ['open', 'inProgress', 'reopen'])
       showAllIssue('small', ['open', 'inProgress', 'reopen'])
+      const root = document.getElementById('root')
+
+      let contents = `CONTENT_HERE`
+
+      root.innerHTML = contents
     })
   </script>
 </html>
