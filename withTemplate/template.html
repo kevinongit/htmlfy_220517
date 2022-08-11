@@ -100,19 +100,19 @@
         flex-direction: row;
         justify-content: space-between;
       }
-      .guide-table {
+      .guide_table {
         border: 0.5px solid gray;
         border-collapse: collapse;
         width: 100%;
         border-spacing: 0px;
         table-layout: fixed;
       }
-      .guide-table th {
+      .guide_table th {
         background: #35332c;
         color: whitesmoke;
         border-bottom: 0 none;
       }
-      .guide-table td {
+      .guide_table td {
         padding: 5px;
         border: 1px solid #bfbfbf;
       }
@@ -220,26 +220,243 @@
     function getCurrentBrowser(ua) {
       return ua.indexOf('rv') > -1 || ua.indexOf('MSIE') > -1 ? 'ie' : ua.indexOf('Edg') > -1 ? 'edge' : 'chrome'
     }
-    function showIssue(prefix, id, idx, key) {
-      const target = document.getElementById(id)
-      if (!key || !key.length) {
-        target.innerHTML = `<span class="issue-clear">&#128584;</span>`
-        return
-      }
-      const records = selectRecords(prefix)
-      const list = Array.isArray(key) ? key.flatMap(k => records[idx][k]) : records[idx][key]
 
-      target.innerHTML = list.length
-        ? list.flatMap(({num, title}) => `<a title='${title}' href="http://10.2.55.67/redmine/issues/${num}" target="_blank">#${num}&nbsp;</a>`)
-        : `<span class="issue-clear">&#127881;</span>`
+    function getPriorityColor(priority = 'Minor') {
+      return priority === 'Critical' ? 'red' : priority === 'Major' ? 'yellow' : 'white'
     }
+
+    /// set main TR's static cells rowspan
+    ///  1. a main TR has an id attribute.
+    ///  2. static cells : main TR's TDs [0~6]
+    function setTrStaticTdRowspan(tr, rowspan) {
+      if (!tr) return
+      const tds = tr.cells
+      const staticTdCount = tds ? tds.length - 2 : 0 /// excluding last two columns : status[7] and issues[8]
+      if (staticTdCount <= 0) return
+      for (let i = 0; i < staticTdCount; i++) {
+        tds[i].setAttribute('rowspan', `${rowspan}`)
+      }
+      tds[staticTdCount].innerHTML = `<span class="issue-clear">&#128584;</span>`
+      console.log(`setTrStaticTdRowspan: tr[${tr.rowIndex}]'s static tds rowspan : ${rowspan}`)
+    }
+
+    function getTrStartIndexAndLength(table, tr = null) {
+      if (!tr) {
+        /// fallback : all rows(tr)
+        return {
+          startIndex: 0, /// the start index of main TR
+          length: table.rows.length - 1, /// the number of empty tr in range(same group)
+        }
+      }
+      let length = 0
+      for (let i = tr.rowIndex; i < table.rows.length; i++) {
+        if (table.rows[i].id !== '') break /// non-empty id (main TR) is the end signal of this group
+        length++
+      }
+      return {
+        startIndex: tr.rowIndex, /// the start index of main TR
+        length, /// the number of empty tr in this group
+      }
+    }
+
+    function deleteEmptyTr(table, startIndex, length) {
+      /// 1. only empty tr in one group will be deleted
+      /// 2. each empty tr should be dealt with in reverse order for consistency
+      for (let i = startIndex + length; i >= startIndex; i--) {
+        if (table.rows[i].id === '') {
+          console.log(`- row(${i}) deleted`)
+          table.deleteRow(i)
+        } else {
+          /// rowspan should be initialized due to calling deleteRow()
+          setTrStaticTdRowspan(table.rows[i], 1)
+        }
+      }
+    }
+
+    function initTableRow(prefix, idx = null) {
+      const table = document.getElementById(`${prefix}-table`)
+      const tr = idx !== null ? document.getElementById(`${prefix}_tr_${idx}`) : null
+
+      console.log({prefix, idx, table})
+      const {startIndex, length} = getTrStartIndexAndLength(table, tr)
+      console.log({startIndex, length})
+      deleteEmptyTr(table, startIndex, length)
+    }
+
     function showAllIssue(prefix, keys) {
       const records = selectRecords(prefix)
       console.log(`records.length=${records.length}`)
       records.map((record, idx) => {
-        const id = `${prefix}_${idx}_issues`
-        showIssue(prefix, id, idx, keys)
+        showIssueWithInit(prefix, idx, keys)
       })
+    }
+
+    function showIssueWithInit(prefix, idx, keys) {
+      initTableRow(prefix, idx)
+      showIssue(prefix, idx, keys)
+    }
+
+    function showIssue(prefix, idx, key) {
+      const DELAY_REDLINE = 4
+      const DELAY_YELLOWLINE = 1
+
+      function getColorByDelayedDay(delayDay) {
+        const bgColor = delayDay > DELAY_REDLINE ? 'red' : delayDay > DELAY_YELLOWLINE ? 'yellow' : 'aqua'
+        const textColor = bgColor === 'red' ? 'white' : bgColor === 'yellow' ? 'gray' : 'orange'
+        return {bgColor, textColor}
+      }
+
+      function getStatusCircleHtml(dayNum) {
+        const {bgColor, textColor} = getColorByDelayedDay(dayNum)
+        return `
+          <span class="status" style="background-color: ${bgColor}; font-size: 0.8rem; color: ${textColor}; vertical-align: middle; text-align: center;"> ${dayNum}d</span>
+        `
+      }
+
+      const tableTarget = document.getElementById(`${prefix}-table`)
+      const tr = document.getElementById(`${prefix}_tr_${idx}`)
+      const {startIndex, length: trLength} = getTrStartIndexAndLength(tableTarget, tr)
+
+      if (!key || !key.length) {
+        const issues = document.getElementById(`${prefix}_${idx}_issues`)
+        issues.innerHTML = `<span class="issue-clear">&#128584;</span>`
+        return
+      }
+      const records = selectRecords(prefix)
+      const list = Array.isArray(key) ? key.flatMap(k => records[idx][k]) : records[idx][key]
+      const rowspan = list.length || 1
+
+      console.log('*****', {list, startIndex, trLength, rowspan})
+      setTrStaticTdRowspan(tr, rowspan)
+
+      list.length
+        ? list.map(({issueNum, title, item}, jdx) => {
+            const priorityColor = getPriorityColor(item.priority)
+
+            let cell1, cell2
+            if (jdx <= trLength) {
+              /// use current tr's td's
+              const cellIdx = jdx === 0 ? 7 : 0
+              cell1 = tableTarget.rows[tr.rowIndex + jdx].cells[cellIdx]
+              cell2 = tableTarget.rows[tr.rowIndex + jdx].cells[cellIdx + 1]
+
+              console.log({rowIndex: tr.rowIndex, jdx, cellIdx, cell1, cell2})
+            } else {
+              /// need to create a non-main TR and (dynamic) TDs
+              const row = tableTarget.insertRow(startIndex + jdx)
+              cell1 = row.insertCell(0)
+              cell2 = row.insertCell(1)
+
+              cell1.setAttribute('style', 'text-align: center; word-break: break-all;')
+              console.log(`+ row(${startIndex + jdx}) inserted`, {idx, jdx, startIndex})
+            }
+
+            cell1.innerHTML = `${getStatusCircleHtml(item.dayNum)}`
+
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(item))))
+            cell2.innerHTML = `
+          <td>
+            <div style="display: flex; justify-content: flex-left; text-align: left; margin-left: 10px; align-items: center;">
+              <div style="background-color: ${priorityColor}">
+                <a title='레드마인(#${issueNum})으로 이동' style="width: 4rem;" href="http://10.2.55.67/redmine/issues/${issueNum}" target="_blank">#${issueNum}</a>
+                <a title='상세보기' href="javascript:showModal('${encoded}')">${title} &nbsp;</a>
+              </div>
+            </div>
+          </td>
+        `
+          })
+        : `<span class="issue-clear">&#127881;</span>`
+    }
+
+    function showModal(encoded) {
+      const decoded = decodeURIComponent(escape(atob(encoded)))
+      const item = JSON.parse(decoded)
+      const modal = document.getElementById('detailModal')
+      const html = getDetailModal(item)
+      console.log({modal, html})
+      const table = document.getElementById('detailTable')
+      table.innerHTML = html
+      modal.style.display = 'block'
+    }
+
+    function hideModal() {
+      const modal = document.getElementById('detailModal')
+      modal.style.display = 'none'
+      /// when the user clicks anywhere outside of the modal, close it
+      window.onclick = function (event) {
+        // const modal = document.getElementById('detailModal')
+        if (event.target == modal) {
+          modal.style.display = 'none'
+        }
+      }
+    }
+
+    function getDetailTable(params) {
+      let content = '<h3>상세정보</h3>'
+      const priorityColor = getPriorityColor(item.priority)
+      content += `
+        &#9989; 일감 : <a style='background-color: ${priorityColor}' title='레드마인으로이동' href='http://10.2.55.67/redmine/issues/${item.issue_number}' target="_blank">#${item.issue_number} ${item.subject}</a>
+        <p>&nbsp;&nbsp;&nbsp;&nbsp; #${item.environment} #${item.issue_kind} #${item.priority} #${item.current_status}
+      `
+
+      let table = `
+          <div class="onepiece">
+            <div class="trow">
+      `
+      const keys = Object.keys(item)
+      table += `<table class="guid_table">
+        <tr>
+          <th width="30%" style="text-align: center;">구분</th>
+          <th width="70%">내용</th>
+        </tr>
+      `
+
+      function makeRow(key, value, opt = {}) {
+        let tagStart = '',
+          tagEnd = ''
+        if (opt.pre) {
+          tagStart = '<pre>'
+          tagEnd = '</pre>'
+        }
+        return `
+          <tr>
+            <td style="text-align: center;">
+              ${key}
+            </td>
+            <td>
+              ${tagStart}${value}${tagEnd}
+            </td>
+          </tr>
+        `
+      }
+      function getHistoryHtml(param = []) {
+        const history = param.filter((v, i, a) => a.findIndex(v2 => v2.change_date === v.change_date) === i)
+        return history
+          .map(item => {
+            return `
+            <small style="background-color: whitesmoke;"><i> ${item.change_date} : ${item.translated}</i> </small> <br><br>
+            <small style="white-space: pre-wrap;">${item.note}</small> <hr>
+          `
+          })
+          .join('')
+      }
+      const description = item.description || 'N/A'
+      const author = item.author || 'N/A'
+      const currentWorker = item.current_worker || 'N/A'
+      const regDate = item.reg_date || 'N/A'
+
+      table +=
+        makeRow('설명', description, {pre: true}) +
+        makeRow('등록자', author) +
+        makeRow('등록일', regDate) +
+        makeRow('담당자', currentWorker) +
+        makeRow('이력', getHistoryHtml(item.history_list)) +
+        '</table>' +
+        '</div>' +
+        '</small>'
+      content += table
+
+      return content
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -248,13 +465,13 @@
         window.close()
       }
 
-      showAllIssue('big', ['open', 'inProgress', 'reopen'])
-      showAllIssue('small', ['open', 'inProgress', 'reopen'])
       const root = document.getElementById('root')
-
       let contents = `CONTENT_HERE`
 
       root.innerHTML = contents
+
+      showAllIssue('big', ['open', 'inProgress', 'reopen'])
+      showAllIssue('small', ['open', 'inProgress', 'reopen', 'inReview', 'underReview'])
     })
   </script>
 </html>
